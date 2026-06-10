@@ -4,23 +4,21 @@ import mediapipe as mp
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
 
-hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
 cap = cv2.VideoCapture(0)
 
-# tip ids for each finger
-# 4=thumb, 8=index, 12=middle, 16=ring, 20=pinky
 tip_ids = [4, 8, 12, 16, 20]
 
 def count_fingers(landmarks):
     fingers = []
 
-    # thumb — compare x position (left/right)
-    if landmarks[4][1] > landmarks[3][1]:
+    # thumb — compare tip with base of pinky for better accuracy
+    if abs(landmarks[4][1] - landmarks[9][1]) > 40:
         fingers.append(1)
     else:
         fingers.append(0)
 
-    # other 4 fingers — compare y position (up/down)
+    # other 4 fingers
     for tip in tip_ids[1:]:
         if landmarks[tip][2] < landmarks[tip - 2][2]:
             fingers.append(1)
@@ -38,11 +36,14 @@ while True:
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(rgb)
 
-    count = 0
+    total_count = 0
 
     if results.multi_hand_landmarks:
-        for lm in results.multi_hand_landmarks:
+        for i, lm in enumerate(results.multi_hand_landmarks):
             mp_draw.draw_landmarks(frame, lm, mp_hands.HAND_CONNECTIONS)
+
+            # get hand label (Left or Right)
+            hand_label = results.multi_handedness[i].classification[0].label
 
             h, w, _ = frame.shape
             landmarks = [[id, int(x * w), int(y * h)] for id, (x, y, z) in
@@ -50,12 +51,22 @@ while True:
 
             fingers = count_fingers(landmarks)
             count = fingers.count(1)
+            total_count += count
 
-        cv2.putText(frame, f"Fingers: {count}", (10, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+            # show count above each hand
+            x = landmarks[0][1]
+            y = landmarks[0][2]
+            cv2.putText(frame, f"{hand_label}: {count}", (x - 30, y - 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+
+    cv2.putText(frame, f"Total: {total_count}", (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
     cv2.imshow("Finger Counter", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    
+    # click on the window first then press Q to quit
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q') or key == 27:  # Q or ESC to quit
         break
 
 cap.release()
