@@ -27,7 +27,7 @@
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/YOUR_USERNAME/hand-gesture-control.git
+git clone https://github.com/PushpaSaysHi/hand-gesture-control.git
 cd hand-gesture-control
 ```
 
